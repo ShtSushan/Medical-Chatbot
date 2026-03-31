@@ -108,7 +108,14 @@
         </main>
     </div>
 
-    <script>
+    <!-- <script>
+         const sessionId = sessionStorage.getItem('session_id') ||
+        (() => {
+            const id = 'session_' + Math.random().toString(36).substr(2, 9);
+            sessionStorage.setItem('session_id', id);
+            return id;
+        })();
+
         function getCurrentTime() {
             return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
@@ -218,7 +225,7 @@
                 const response = await fetch('/get', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ msg: text })
+                    body: JSON.stringify({ msg: text, session_id: sessionId })
                 });
                 const data = await response.json();
                 hideTyping();
@@ -230,7 +237,172 @@
                 sendBtn.disabled = false;
             }
         }
-    </script>
+    </script> -->
+    <script>
+    // Session ID
+    const sessionId = sessionStorage.getItem('session_id') ||
+        (() => {
+            const id = 'session_' + Math.random().toString(36).substr(2, 9);
+            sessionStorage.setItem('session_id', id);
+            return id;
+        })();
+
+    // ── Storage helpers ──
+    function saveChatsToLocal(role, text) {
+        try {
+            const chats = JSON.parse(localStorage.getItem('medibot_chats') || '[]');
+            chats.push({ role, text, time: getCurrentTime() });
+
+            // Safety check — if over 4MB, remove oldest 20 messages
+            if (JSON.stringify(chats).length > 4 * 1024 * 1024) {
+                chats.splice(0, 20);
+            }
+
+            localStorage.setItem('medibot_chats', JSON.stringify(chats));
+        } catch(e) {
+            // localStorage full — clear old chats
+            localStorage.removeItem('medibot_chats');
+        }
+    }
+
+    function loadChatsFromLocal() {
+        const chats = JSON.parse(localStorage.getItem('medibot_chats') || '[]');
+        if (chats.length > 0) {
+            // Hide welcome message if history exists
+            document.getElementById('chatMessages').innerHTML = '';
+            chats.forEach(c => appendMessage(c.role, c.text, c.time, false));
+        }
+    }
+
+    // ── Clear chat ──
+    function clearChat() {
+        localStorage.removeItem('medibot_chats');  // ← clear storage
+        const messages = document.getElementById('chatMessages');
+        messages.innerHTML = `
+            <div class="message message--bot">
+                <div class="message__avatar">✚</div>
+                <div class="message__content">
+                    <div class="message__bubble">Chat cleared! How can I help you today?</div>
+                    <span class="message__time">${getCurrentTime()}</span>
+                </div>
+            </div>`;
+        document.getElementById('suggestions').style.display = 'flex';
+    }
+
+    function getCurrentTime() {
+        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function autoResize(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';
+    }
+
+    function handleKeyDown(event) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            sendMessage();
+        }
+    }
+
+    function sendSuggestion(btn) {
+        const text = btn.textContent;
+        document.getElementById('userInput').value = text;
+        document.getElementById('suggestions').style.display = 'none';
+        sendMessage();
+    }
+
+    // ── Append message ──
+    function appendMessage(role, text, time = null, save = true) {
+        const messages = document.getElementById('chatMessages');
+        const div = document.createElement('div');
+        const msgTime = time || getCurrentTime();
+        div.classList.add('message', role === 'user' ? 'message--user' : 'message--bot');
+
+        if (role === 'user') {
+            div.innerHTML = `
+                <div class="message__content">
+                    <div class="message__bubble">${text}</div>
+                    <span class="message__time">${msgTime}</span>
+                </div>
+                <div class="message__avatar message__avatar--user">You</div>`;
+        } else {
+            div.innerHTML = `
+                <div class="message__avatar">✚</div>
+                <div class="message__content">
+                    <div class="message__bubble">${text}</div>
+                    <span class="message__time">${msgTime}</span>
+                </div>`;
+        }
+
+        messages.appendChild(div);
+        requestAnimationFrame(() => div.classList.add('message--visible'));
+        messages.scrollTop = messages.scrollHeight;
+
+        // Save to localStorage
+        if (save) saveChatsToLocal(role, text);
+    }
+
+    function showTyping() {
+        const messages = document.getElementById('chatMessages');
+        const div = document.createElement('div');
+        div.classList.add('message', 'message--bot', 'message--typing', 'message--visible');
+        div.id = 'typingIndicator';
+        div.innerHTML = `
+            <div class="message__avatar">✚</div>
+            <div class="message__content">
+                <div class="message__bubble typing-bubble">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>`;
+        messages.appendChild(div);
+        messages.scrollTop = messages.scrollHeight;
+    }
+
+    function hideTyping() {
+        const el = document.getElementById('typingIndicator');
+        if (el) el.remove();
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById('userInput');
+        const text = input.value.trim();
+        if (!text) return;
+
+        document.getElementById('suggestions').style.display = 'none';
+        appendMessage('user', text);
+        input.value = '';
+        input.style.height = 'auto';
+
+        const sendBtn = document.getElementById('sendBtn');
+        sendBtn.disabled = true;
+        showTyping();
+
+        try {
+            const response = await fetch('/get', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    msg: text,
+                    session_id: sessionId
+                })
+            });
+            const data = await response.json();
+            hideTyping();
+            appendMessage('bot', data.response);
+        } catch (error) {
+            hideTyping();
+            appendMessage('bot', 'Sorry, something went wrong. Please try again.');
+        } finally {
+            sendBtn.disabled = false;
+        }
+    }
+
+    // ── Load chats on page start ──
+    window.onload = function() {
+        loadChatsFromLocal();
+    }
+</script>
 
 </body>
 </html>
