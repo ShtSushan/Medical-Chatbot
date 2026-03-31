@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediBot — Medical Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <!-- Background decoration -->
+    <div class="bg-orb bg-orb--1"></div>
+    <div class="bg-orb bg-orb--2"></div>
+    <div class="bg-orb bg-orb--3"></div>
+
+    <div class="app-wrapper">
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar__logo">
+                <div class="logo-icon">✚</div>
+                <span class="logo-text">MediBot</span>
+            </div>
+
+            <div class="sidebar__section">
+                <p class="sidebar__label">About</p>
+                <p class="sidebar__desc">AI-powered medical assistant. Ask me anything about symptoms, conditions, or treatments.</p>
+            </div>
+
+            <div class="sidebar__section">
+                <p class="sidebar__label">Capabilities</p>
+                <ul class="sidebar__list">
+                    <li>🩺 Symptoms & Diagnosis</li>
+                    <li>💊 Medications Info</li>
+                    <li>🧬 Medical Conditions</li>
+                    <li>📋 Treatment Options</li>
+                </ul>
+            </div>
+
+            <div class="sidebar__disclaimer">
+                <p>⚠️ For informational purposes only. Always consult a qualified doctor for medical advice.</p>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="chat-container">
+
+            <!-- Header -->
+            <header class="chat-header">
+                <div class="chat-header__info">
+                    <div class="status-dot"></div>
+                    <div>
+                        <h1 class="chat-header__title">Medical Assistant</h1>
+                        <p class="chat-header__sub">Ask me anything</p>
+                    </div>
+                </div>
+                <button class="clear-btn" onclick="clearChat()">Clear Chat</button>
+            </header>
+
+            <!-- Messages -->
+            <div class="chat-messages" id="chatMessages">
+
+                <!-- Welcome message -->
+                <div class="message message--bot">
+                    <div class="message__avatar">✚</div>
+                    <div class="message__content">
+                        <div class="message__bubble">
+                            Hello! I'm MediBot, your AI medical assistant. I can help you understand medical conditions, symptoms, and treatments. How can I assist you today?
+                        </div>
+                        <span class="message__time">Just now</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Suggested Questions -->
+            <div class="suggestions" id="suggestions">
+                <button class="suggestion-chip" onclick="sendSuggestion(this)">What is Acromegaly?</button>
+                <button class="suggestion-chip" onclick="sendSuggestion(this)">Symptoms of diabetes</button>
+                <button class="suggestion-chip" onclick="sendSuggestion(this)">What causes acne?</button>
+                <button class="suggestion-chip" onclick="sendSuggestion(this)">Tell me about hypertension</button>
+            </div>
+
+            <!-- Input Area -->
+            <div class="chat-input-area">
+                <div class="chat-input-wrapper">
+                    <textarea
+                        id="userInput"
+                        class="chat-input"
+                        placeholder="Ask a medical question..."
+                        rows="1"
+                        onkeydown="handleKeyDown(event)"
+                        oninput="autoResize(this)"
+                    ></textarea>
+                    <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        </svg>
+                    </button>
+                </div>
+                <p class="input-hint">Press <kbd>Enter</kbd> to send · <kbd>Shift+Enter</kbd> for new line</p>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        function getCurrentTime() {
+            return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';
+        }
+
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function sendSuggestion(btn) {
+            const text = btn.textContent;
+            document.getElementById('userInput').value = text;
+            document.getElementById('suggestions').style.display = 'none';
+            sendMessage();
+        }
+
+        function clearChat() {
+            const messages = document.getElementById('chatMessages');
+            messages.innerHTML = `
+                <div class="message message--bot">
+                    <div class="message__avatar">✚</div>
+                    <div class="message__content">
+                        <div class="message__bubble">Chat cleared! How can I help you today?</div>
+                        <span class="message__time">${getCurrentTime()}</span>
+                    </div>
+                </div>`;
+            document.getElementById('suggestions').style.display = 'flex';
+        }
+
+        function appendMessage(role, text) {
+            const messages = document.getElementById('chatMessages');
+            const div = document.createElement('div');
+            div.classList.add('message', role === 'user' ? 'message--user' : 'message--bot');
+
+            if (role === 'user') {
+                div.innerHTML = `
+                    <div class="message__content">
+                        <div class="message__bubble">${text}</div>
+                        <span class="message__time">${getCurrentTime()}</span>
+                    </div>
+                    <div class="message__avatar message__avatar--user">You</div>`;
+            } else {
+                div.innerHTML = `
+                    <div class="message__avatar">✚</div>
+                    <div class="message__content">
+                        <div class="message__bubble">${text}</div>
+                        <span class="message__time">${getCurrentTime()}</span>
+                    </div>`;
+            }
+
+            messages.appendChild(div);
+
+            // animate in
+            requestAnimationFrame(() => div.classList.add('message--visible'));
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function showTyping() {
+            const messages = document.getElementById('chatMessages');
+            const div = document.createElement('div');
+            div.classList.add('message', 'message--bot', 'message--typing', 'message--visible');
+            div.id = 'typingIndicator';
+            div.innerHTML = `
+                <div class="message__avatar">✚</div>
+                <div class="message__content">
+                    <div class="message__bubble typing-bubble">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>`;
+            messages.appendChild(div);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function hideTyping() {
+            const el = document.getElementById('typingIndicator');
+            if (el) el.remove();
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            // Hide suggestions
+            document.getElementById('suggestions').style.display = 'none';
+
+            // Show user message
+            appendMessage('user', text);
+            input.value = '';
+            input.style.height = 'auto';
+
+            // Disable send button
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+
+            // Show typing
+            showTyping();
+
+            try {
+                const response = await fetch('/get', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ msg: text })
+                });
+                const data = await response.json();
+                hideTyping();
+                appendMessage('bot', data.response);
+            } catch (error) {
+                hideTyping();
+                appendMessage('bot', 'Sorry, something went wrong. Please try again.');
+            } finally {
+                sendBtn.disabled = false;
+            }
+        }
+    </script>
+
+</body>
+</html>
